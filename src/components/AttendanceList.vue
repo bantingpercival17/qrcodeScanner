@@ -89,7 +89,12 @@ export default {
         },
         setName(data) {
             let name = data.first_name + ' ' + data.last_name
-            return name.toUpperCase()
+            if (!data.first_name) {
+                name = data.name
+            } else {
+                name = name.toUpperCase()
+            }
+            return name
         },
         convertTime(data) {
             const dateObject = new Date(data)

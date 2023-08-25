@@ -133,7 +133,49 @@ ipcMain.handle('saveOfflineAttendance', (event, data) => {
     console.log('Not Existing')
     fs.mkdirSync(dirName, { recursive: true }); // Recursive option creates parent directories if they don't exist
   }
+  try {
+    let fileData = [];
 
+    if (fs.existsSync(fileName)) {
+      const existingData = fs.readFileSync(fileName, 'utf-8');
+      fileData = JSON.parse(existingData);
+      // eslint-disable-next-line no-unused-vars
+      let findIndex = null
+      console.log(data)
+      // First the the Data
+      fileData.forEach((element, index) => {
+        if (element.email == data.email) {
+          if (element.time_out == null) {
+            findIndex = index
+          }
+        }
+      });
+      console.log(findIndex)
+      if (findIndex != null) {
+        fileData[findIndex].time_out = data.time_in
+      } else {
+        fileData.push(data)
+      }
+    }
+    else {
+      fileData.push(data)
+    }
+    fs.writeFileSync(fileName, JSON.stringify(fileData, null, 2), 'utf-8'); // Save the combined data
+    console.log('Data appended and file updated.');
+  } catch (error) {
+    fs.writeFileSync(fileName, JSON.stringify(data, null, 2), 'utf-8');
+    console.log(error);
+    return 'File created and data written.'; // Return a success message
+  }
+});
+ipcMain.handle('saveOfflineAttendanceInDay', (event, data, filePath) => {
+  const fileName = path.join(app.getPath('userData'), filePath);
+  console.log(fileName)
+  // Ensure the directory structure exists
+  const dirName = path.dirname(fileName);
+  if (!fs.existsSync(dirName)) {
+    fs.mkdirSync(dirName, { recursive: true }); // Recursive option creates parent directories if they don't exist
+  }
   try {
     let fileData = [];
 
@@ -142,12 +184,13 @@ ipcMain.handle('saveOfflineAttendance', (event, data) => {
       fileData = JSON.parse(existingData);
     }
     else {
-      fileData.push(data)
-    }
-    console.log(fileData)
-    //fileData.push(data); // Append new data to the existing array
-    fs.writeFileSync(fileName, JSON.stringify(fileData, null, 2), 'utf-8'); // Save the combined data
+      data.forEach(element => {
+       
+        fileData.push(element)
+      });
 
+    }
+    fs.writeFileSync(fileName, JSON.stringify(fileData, null, 2), 'utf-8'); // Save the combined data
     console.log('Data appended and file updated.');
   } catch (error) {
     fs.writeFileSync(fileName, JSON.stringify(data, null, 2), 'utf-8');
@@ -155,6 +198,7 @@ ipcMain.handle('saveOfflineAttendance', (event, data) => {
     return 'File created and data written.'; // Return a success message
   }
 });
+
 ipcMain.on('create-or-check-folder', (event, folderName) => {
   const folderPath = path.join(app.getPath('userData'), folderName);
   if (!fs.existsSync(folderPath)) {
