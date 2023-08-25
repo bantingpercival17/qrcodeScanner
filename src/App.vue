@@ -75,12 +75,39 @@ export default {
         if (response) {
           this.isApiOnline = true
           this.attendanceList = response.data.data
+          /*  this.saveOfflineAttendance(response.data.data) */
         } else {
           this.isApiOnline = false
+          this.offlineFetchAttendance()
         }
       } catch (error) {
         this.isApiOnline = false;
+        this.offlineFetchAttendance()
       }
+    },
+    saveOfflineAttendance(data) {
+      const currentDateTime = new Date();
+      const formattedDate = currentDateTime.toISOString().slice(0, 10); // Format as "YYYY-MM-DD"
+      ipcRenderer.invoke('saveOfflineAttendance', data.employee, 'Offline Storage/employee/attendance-logs/' + formattedDate + '.json')
+    },
+    /* async saveOfflineAttendance(){
+      const response = await axios.get('attendance');
+    }, */
+    offlineFetchAttendance() {
+      // Get the Attendance in Day
+      /* Employee */
+      const currentDateTime = new Date();
+      const formattedDate = currentDateTime.toISOString().slice(0, 10); // Format as "YYYY-MM-DD"
+      ipcRenderer.invoke('retriveJsonFile', 'Offline Storage/employee/attendance-logs/' + formattedDate + '.json')
+      /* console.log(formattedDate) */
+      ipcRenderer.on('jsonFileData', (event, fileData) => {
+        if (fileData !== null) {
+          /* console.log(fileData) */
+          this.attendanceList['employee'] = JSON.parse(fileData)
+        } else {
+          console.error('Failed to read JSON file or file is empty');
+        }
+      });
     },
     startPolling() {
       this.pollingTimer = setInterval(this.checkApiStatus, this.pollInterval);
@@ -102,6 +129,7 @@ export default {
           if (response) {
             console.log('Save to the Server')
             if (response.data.data.status != 'error') {
+              this.scanProfile(data, true)
               this.profileDetails = response.data.data
             } else {
               this.profileDetails = null
@@ -109,46 +137,48 @@ export default {
           }
         }
         else {
-          var username = data.includes('employee')
-          let pathFile = ''
-          if (username) {
-            var user = data.replace('employee:', '')
-            user = user.replace('employee', '')
-            // Employee Account Retriving Files // User Path
-            pathFile = 'Offline Storage/employee/data/' + user + '.json'
-          } else {
-            // Student Account  // User Path
-            pathFile = 'Offline Storage/student/data/' + data + '@bma.edu.ph.json'
-          }
-          try {
-            ipcRenderer.invoke('retriveJsonFile', pathFile)
-            ipcRenderer.on('jsonFileData', (event, fileData) => {
-              if (fileData !== null) {
-                // Assuming fileData is a string containing JSON data
-                this.fileContent = fileData
-                // Convert the string to a JavaScript object
-                let forwardedData = JSON.parse(this.fileContent)
-                forwardedData = JSON.parse(forwardedData)
-                const dateTime = this.getDateTime()
-                console.log(dateTime)
-                forwardedData['time_in'] = dateTime
-                forwardedData['time_out'] = null
-                console.log(forwardedData)
-                forwardedData['is_saved'] = false
-                ipcRenderer.invoke('saveOfflineAttendance', forwardedData);
-                this.profileDetails = forwardedData
-              } else {
-                console.error('Failed to read JSON file or file is empty');
-              }
-            });
-          } catch (error) {
-            console.error('Error reading file:', error);
-          }
-
+          this.scanProfile(data, false)
         }
       } catch (error) {
         // Display a error
         console.log(error)
+      }
+    },
+    scanProfile(data, saveStatus) {
+      var username = data.includes('employee')
+      let pathFile = ''
+      if (username) {
+        var user = data.replace('employee:', '')
+        user = user.replace('employee', '')
+        // Employee Account Retriving Files // User Path
+        pathFile = 'Offline Storage/employee/data/' + user + '.json'
+      } else {
+        // Student Account  // User Path
+        pathFile = 'Offline Storage/student/data/' + data + '@bma.edu.ph.json'
+      }
+      try {
+        ipcRenderer.invoke('retriveJsonFile', pathFile)
+        ipcRenderer.on('jsonFileData', (event, fileData) => {
+          if (fileData !== null) {
+            // Assuming fileData is a string containing JSON data
+            this.fileContent = fileData
+            // Convert the string to a JavaScript object
+            let forwardedData = JSON.parse(this.fileContent)
+            //forwardedData = JSON.parse(forwardedData)
+            const dateTime = this.getDateTime()
+            console.log(dateTime)
+            forwardedData['time_in'] = dateTime
+            forwardedData['time_out'] = null
+            console.log(forwardedData)
+            forwardedData['is_saved'] = saveStatus
+            ipcRenderer.invoke('saveOfflineAttendance', forwardedData);
+            //this.profileDetails = forwardedData
+          } else {
+            console.error('Failed to read JSON file or file is empty');
+          }
+        });
+      } catch (error) {
+        console.error('Error reading file:', error);
       }
     },
     getDateTime() {
@@ -200,7 +230,7 @@ export default {
               }); */
               element['image'] = folder + '/' + filename
               // Save Information
-              const data = JSON.stringify(element);
+              const data = element;
               folder = main + '/employee/' + child1
               await ipcRenderer.invoke('saveUserData', data, folder, element.email + '.json');
 
